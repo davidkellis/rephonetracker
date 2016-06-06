@@ -20,13 +20,17 @@ end
 function checkin()
 end
 
+gpsDeviceAddress = 0x05
+
+gpsScanId = 0
+gpsScanSize = 4
+
 function main()
   local host = lookupHost()
-  print(host)
-  print(json.encode({x=5, y="foo"}))
+  -- print(host)
+  -- print(json.encode({x=5, y="foo"}))
 
   -- Serial.begin(115200);
-  local gpsDeviceAddress = 0x05
   setupI2C(gpsDeviceAddress, 115200)
 
   --[[
@@ -44,9 +48,21 @@ function setupI2C(deviceAddress, baudRate)
 end
 
 function gpsCheckOnline()
-  local gpsScanId = 0
-  local gpsScanSize = 4
-  i2c.txrx(gpsScanId, 2 + gpsScanSize)
+  local scanValue = i2c.txrx(gpsScanId, 2 + gpsScanSize)
+  local scannedDeviceAddress = tonumber(scanValue:sub(6,6))
+  return scannedDeviceAddress == gpsDeviceAddress
+end
+
+function gpsGetNorthSouth()
+end
+
+function gpsGetEastWest()
+end
+
+function gpsGetLatitude()
+end
+
+function gpsGetLongitude()
 end
 
 main()
