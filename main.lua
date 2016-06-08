@@ -12,8 +12,7 @@ function main()
   -- print(host)
   -- print(json.encode({x=5, y="foo"}))
 
-  -- Serial.begin(115200);
-  setupI2C(gpsDeviceAddress, 300)
+  setupI2C(gpsDeviceAddress, 100)  -- https://github.com/Seeed-Studio/Lua_for_RePhone/blob/master/bindings/i2c.c - default speed = 100kbps
 
   if gps.isOnline() then
     print("GPS is online")
@@ -27,8 +26,8 @@ function main()
   end
 end
 
-function setupI2C(deviceAddress, baudRate)
-  i2c.setup(deviceAddress, baudRate)
+function setupI2C(deviceAddress, speed)
+  i2c.setup(deviceAddress, speed)
 end
 
 -- return array of the form: {lat, long} ; positive latitude is for north latitude and negative latitude is for south latitude; positive longitude is for east longitude and negative longitude is for west longitude
