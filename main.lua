@@ -1,29 +1,11 @@
--- References:
--- https://github.com/Seeed-Studio/Arduino_IDE_for_RePhone/blob/master/hardware/arduino/mtk/libraries/Wire/Wire.h
--- https://github.com/Seeed-Studio/Arduino_IDE_for_RePhone/blob/master/hardware/arduino/mtk/libraries/Wire/Wire.cpp
--- https://github.com/Seeed-Studio/Arduino_IDE_for_RePhone/blob/master/hardware/arduino/mtk/libraries/LGPS/LGPS.h
--- https://github.com/Seeed-Studio/Arduino_IDE_for_RePhone/blob/master/hardware/arduino/mtk/libraries/LGPS/LGPS.cpp
--- https://github.com/Seeed-Studio/Arduino_IDE_for_RePhone/blob/master/hardware/arduino/mtk/libraries/LGPS/examples/gps_test/gps_test.ino
-
 json = require "dkjson"
+gps = require "gps"
+deque = require "deque"
 
+deviceId = "123"
 resolveUrl = "https://localhost:3000/"
 
-function lookupHost()
-  local host = "127.0.0.1"
-  -- make request of resolveUrl
-  -- parse JSON response
-  -- extract IP address of host
-  return host
-end
-
-function checkin()
-end
-
-gpsDeviceAddress = 0x05
-
-gpsScanId = 0
-gpsScanSize = 4
+functionQueue = deque.new()
 
 function main()
   local host = lookupHost()
@@ -33,36 +15,78 @@ function main()
   -- Serial.begin(115200);
   setupI2C(gpsDeviceAddress, 115200)
 
-  --[[
-  Data format:
-  ID(1 byte), Data length(1 byte), Data 1, Data 2, ... Data n (n bytes, n = data length)
-  For example, get the scan data.
-  First, Send GPS_SCAN_ID(1 byte) to device.
-  Second, Receive scan data(ID + Data length + GPS_SCAN_SIZE = 6 bytes).
-  Third, The scan data begin from the third data of received.
-  --]]
+  if gps.isOnline() then
+    print("GPS is online")
+
+    local coords = getGpsCoordinates()
+    print("current coords: lat=" .. coords[1] .. " long=" .. coords[2])
+
+    -- checkinPeriodically(host, deviceId)
+  else
+    print("GPS is not online")
+  end
 end
 
 function setupI2C(deviceAddress, baudRate)
   i2c.setup(deviceAddress, baudRate)
 end
 
-function gpsCheckOnline()
-  local scanValue = i2c.txrx(gpsScanId, 2 + gpsScanSize)
-  local scannedDeviceAddress = tonumber(scanValue:sub(6,6))
-  return scannedDeviceAddress == gpsDeviceAddress
+-- return array of the form: {lat, long} ; positive latitude is for north latitude and negative latitude is for south latitude; positive longitude is for east longitude and negative longitude is for west longitude
+function getGpsCoordinates()
+  local latitude = gps.getLatitude()    -- returns a positive value
+  if gps.getNorthSouth() == "S" then
+    latitude = -latitude
+  end
+
+  local longitude = gps.getLongitude()  -- returns a positive value
+  if gps.getEastWest() == "W" then
+    longitude = -longitude
+  end
+
+  return {latitude, longitude}
 end
 
-function gpsGetNorthSouth()
+function lookupHost()
+  local host = "127.0.0.1"
+  -- make request of resolveUrl
+  -- parse JSON response
+  -- extract IP address of host
+  return host
 end
 
-function gpsGetEastWest()
+function checkinPeriodically(host, deviceId)
+  checkin(host, deviceId)
+
+  local fn = function()
+    if not functionQueue:is_empty() then
+      local f = functionQueue.pop_left()
+      f()
+    end
+  end
+  local timerId = timer.create(10000, fn)
+  return timerId
 end
 
-function gpsGetLatitude()
-end
+-- makes a request against the following URL: https://{host}/checkin/{deviceId}/{lat}/{long}
+-- with the lat/long of the current GPS coordinates
+function checkin(host, deviceId)
+  local coords = getGpsCoordinates()
+  local lat = coords[1]
+  local long = coords[2]
 
-function gpsGetLongitude()
+  if type(lat) == "number" and type(long) == "number" then
+    response = ""
+    local onResponse = function(data, more)
+      if more == 0 then
+        print('https get response:', response)
+        functionQueue.push_right(function() checkin(host, deviceId) end)
+      else
+        response = response..data
+      end
+    end
+
+    https.get("https://" .. host .. "/checkin/" .. deviceId .. "/" .. lat .. "/" .. long, onResponse)
+  end
 end
 
 main()
