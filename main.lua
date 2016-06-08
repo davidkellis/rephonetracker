@@ -1,4 +1,4 @@
-json = require "dkjson"
+-- json = require "dkjson"
 gps = require "gps"
 deque = require "deque"
 
@@ -13,7 +13,7 @@ function main()
   -- print(json.encode({x=5, y="foo"}))
 
   -- Serial.begin(115200);
-  setupI2C(gpsDeviceAddress, 115200)
+  setupI2C(gpsDeviceAddress, 300)
 
   if gps.isOnline() then
     print("GPS is online")
